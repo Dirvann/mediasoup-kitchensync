@@ -1,0 +1,7 @@
+{
+  "hostName": "178.128.169.151",
+  "listenPort": 443,
+  "useHttps": true,
+  "httpsKeyFile":"../httpsKeyFile",
+  "httpsCertFile":"../httpsCertFile"
+}

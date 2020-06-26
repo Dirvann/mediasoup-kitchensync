@@ -31,12 +31,10 @@
 'use strict';
 
 // --- read options ---
+const scribbles = require('scribbles');
 const fs = require('fs');
-let serverOptions = {
-  hostName: "localhost",
-  listenPort: 3000,
-  useHttps: false
-};
+const serverOptions = require('./serverOptions');
+
 let sslOptions = {};
 if (serverOptions.useHttps) {
   sslOptions.key = fs.readFileSync(serverOptions.httpsKeyFile).toString();
@@ -56,13 +54,13 @@ let webServer = null;
 if (serverOptions.useHttps) {
   // -- https ---
   webServer = https.createServer(sslOptions, app).listen(webPort, function () {
-    console.log('Web server start. https://' + serverOptions.hostName + ':' + webServer.address().port + '/');
+    scribbles.log('Web server start. https://' + serverOptions.hostName + ':' + webServer.address().port + '/');
   });
 }
 else {
   // --- http ---
   webServer = http.Server(app).listen(webPort, function () {
-    console.log('Web server start. http://' + serverOptions.hostName + ':' + webServer.address().port + '/');
+    scribbles.log('Web server start. http://' + serverOptions.hostName + ':' + webServer.address().port + '/');
   });
 }
 
@@ -70,49 +68,49 @@ else {
 function isFileExist(path) {
   try {
     fs.accessSync(path, fs.constants.R_OK);
-    //console.log('File Exist path=' + path);
+    //scribbles.log('File Exist path=' + path);
     return true;
   }
   catch (err) {
     if (err.code === 'ENOENT') {
-      //console.log('File NOT Exist path=' + path);
+      //scribbles.log('File NOT Exist path=' + path);
       return false
     }
   }
 
-  console.error('MUST NOT come here');
+  scribbles.error('MUST NOT come here');
   return false;
 }
 
 // --- socket.io server ---
 const io = require('socket.io')(webServer);
-console.log('socket.io server start. port=' + webServer.address().port);
+scribbles.log('socket.io server start. port=' + webServer.address().port);
 
 io.on('connection', function (socket) {
-  console.log('client connected. socket id=' + getId(socket) + '  , total clients=' + getClientCount());
+  scribbles.log('client connected. socket id=' + getId(socket) + '  , total clients=' + getClientCount());
 
   socket.on('disconnect', function () {
     const roomName = getRoomname();
 
     // close user connection
-    console.log('client disconnected. socket id=' + getId(socket) + '  , total clients=' + getClientCount());
+    scribbles.log('client disconnected. socket id=' + getId(socket) + '  , total clients=' + getClientCount());
     cleanUpPeer(roomName, socket);
 
     // --- socket.io room ---
     socket.leave(roomName);
   });
   socket.on('error', function (err) {
-    console.error('socket ERROR:', err);
+    scribbles.error('socket ERROR:', err);
   });
   socket.on('connect_error', (err) => {
-    console.error('client connection error', err);
+    scribbles.error('client connection error', err);
   });
 
   socket.on('getRouterRtpCapabilities', (data, callback) => {
     const router = defaultRoom.router;
 
     if (router) {
-      //console.log('getRouterRtpCapabilities: ', router.rtpCapabilities);
+      //scribbles.log('getRouterRtpCapabilities: ', router.rtpCapabilities);
       sendResponse(router.rtpCapabilities, callback);
     }
     else {
@@ -125,9 +123,9 @@ io.on('connection', function (socket) {
     const roomId = data.roomId;
     const existRoom = Room.getRoom(roomId);
     if (existRoom) {
-      console.log('--- use exist room. roomId=' + roomId);
+      scribbles.log('--- use exist room. roomId=' + roomId);
     } else {
-      console.log('--- create new room. roomId=' + roomId);
+      scribbles.log('--- create new room. roomId=' + roomId);
       const room = await setupRoom(roomId);
     }
 
@@ -140,7 +138,7 @@ io.on('connection', function (socket) {
   socket.on('createProducerTransport', async (data, callback) => {
     const roomName = getRoomname();
 
-    console.log('-- createProducerTransport ---room=%s', roomName);
+    scribbles.log('-- createProducerTransport ---room=%s', roomName);
     const { transport, params } = await createTransport(roomName);
     addProducerTrasport(roomName, getId(socket), transport);
     transport.observer.on('close', () => {
@@ -157,7 +155,7 @@ io.on('connection', function (socket) {
       }
       removeProducerTransport(roomName, id);
     });
-    //console.log('-- createProducerTransport params:', params);
+    //scribbles.log('-- createProducerTransport params:', params);
     sendResponse(params, callback);
   });
 
@@ -171,28 +169,28 @@ io.on('connection', function (socket) {
   socket.on('produce', async (data, callback) => {
     const roomName = getRoomname();
     const { kind, rtpParameters } = data;
-    console.log('-- produce --- kind=' + kind);
+    scribbles.log('-- produce --- kind=' + kind);
     const id = getId(socket);
     const transport = getProducerTrasnport(roomName, id);
     if (!transport) {
-      console.error('transport NOT EXIST for id=' + id);
+      scribbles.error('transport NOT EXIST for id=' + id);
       return;
     }
     const producer = await transport.produce({ kind, rtpParameters });
     addProducer(roomName, id, producer, kind);
     producer.observer.on('close', () => {
-      console.log('producer closed --- kind=' + kind);
+      scribbles.log('producer closed --- kind=' + kind);
     })
     sendResponse({ id: producer.id }, callback);
 
     // inform clients about new producer
 
     if (roomName) {
-      console.log('--broadcast room=%s newProducer ---', roomName);
+      scribbles.log('--broadcast room=%s newProducer ---', roomName);
       socket.broadcast.to(roomName).emit('newProducer', { socketId: id, producerId: producer.id, kind: producer.kind });
     }
     else {
-      console.log('--broadcast newProducer ---');
+      scribbles.log('--broadcast newProducer ---');
       socket.broadcast.emit('newProducer', { socketId: id, producerId: producer.id, kind: producer.kind });
     }
   });
@@ -200,7 +198,7 @@ io.on('connection', function (socket) {
   // --- consumer ----
   socket.on('createConsumerTransport', async (data, callback) => {
     const roomName = getRoomname();
-    console.log('-- createConsumerTransport -- id=' + getId(socket));
+    scribbles.log('-- createConsumerTransport -- id=' + getId(socket));
     const { transport, params } = await createTransport(roomName);
     addConsumerTrasport(roomName, getId(socket), transport);
     transport.observer.on('close', () => {
@@ -208,16 +206,16 @@ io.on('connection', function (socket) {
       removeConsumerSetDeep(roomName, localId);
       removeConsumerTransport(roomName, lid);
     });
-    //console.log('-- createTransport params:', params);
+    //scribbles.log('-- createTransport params:', params);
     sendResponse(params, callback);
   });
 
   socket.on('connectConsumerTransport', async (data, callback) => {
     const roomName = getRoomname();
-    console.log('-- connectConsumerTransport -- id=' + getId(socket));
+    scribbles.log('-- connectConsumerTransport -- id=' + getId(socket));
     let transport = getConsumerTrasnport(roomName, getId(socket));
     if (!transport) {
-      console.error('transport NOT EXIST for id=' + getId(socket));
+      scribbles.error('transport NOT EXIST for id=' + getId(socket));
       return;
     }
     await transport.connect({ dtlsParameters: data.dtlsParameters });
@@ -225,24 +223,24 @@ io.on('connection', function (socket) {
   });
 
   socket.on('consume', async (data, callback) => {
-    console.error('-- ERROR: consume NOT SUPPORTED ---');
+    scribbles.error('-- ERROR: consume NOT SUPPORTED ---');
     return;
   });
 
   socket.on('resume', async (data, callback) => {
-    console.error('-- ERROR: resume NOT SUPPORTED ---');
+    scribbles.error('-- ERROR: resume NOT SUPPORTED ---');
     return;
   });
 
   socket.on('getCurrentProducers', async (data, callback) => {
     const roomName = getRoomname();
     const clientId = data.localId;
-    console.log('-- getCurrentProducers for Id=' + clientId);
+    scribbles.log('-- getCurrentProducers for Id=' + clientId);
 
     const remoteVideoIds = getRemoteIds(roomName, clientId, 'video');
-    console.log('-- remoteVideoIds:', remoteVideoIds);
+    scribbles.log('-- remoteVideoIds:', remoteVideoIds);
     const remoteAudioIds = getRemoteIds(roomName, clientId, 'audio');
-    console.log('-- remoteAudioIds:', remoteAudioIds);
+    scribbles.log('-- remoteAudioIds:', remoteAudioIds);
 
     sendResponse({ remoteVideoIds: remoteVideoIds, remoteAudioIds: remoteAudioIds }, callback);
   });
@@ -251,30 +249,30 @@ io.on('connection', function (socket) {
     const roomName = getRoomname();
     const localId = getId(socket);
     const kind = data.kind;
-    console.log('-- consumeAdd -- localId=%s kind=%s', localId, kind);
+    scribbles.log('-- consumeAdd -- localId=%s kind=%s', localId, kind);
 
     let transport = getConsumerTrasnport(roomName, localId);
     if (!transport) {
-      console.error('transport NOT EXIST for id=' + localId);
+      scribbles.error('transport NOT EXIST for id=' + localId);
       return;
     }
     const rtpCapabilities = data.rtpCapabilities;
     const remoteId = data.remoteId;
-    console.log('-- consumeAdd - localId=' + localId + ' remoteId=' + remoteId + ' kind=' + kind);
+    scribbles.log('-- consumeAdd - localId=' + localId + ' remoteId=' + remoteId + ' kind=' + kind);
     const producer = getProducer(roomName, remoteId, kind);
     if (!producer) {
-      console.error('producer NOT EXIST for remoteId=%s kind=%s', remoteId, kind);
+      scribbles.error('producer NOT EXIST for remoteId=%s kind=%s', remoteId, kind);
       return;
     }
     const { consumer, params } = await createConsumer(roomName, transport, producer, rtpCapabilities); // producer must exist before consume
     //subscribeConsumer = consumer;
     addConsumer(roomName, localId, remoteId, consumer, kind); // TODO: MUST comination of  local/remote id
-    console.log('addConsumer localId=%s, remoteId=%s, kind=%s', localId, remoteId, kind);
+    scribbles.log('addConsumer localId=%s, remoteId=%s, kind=%s', localId, remoteId, kind);
     consumer.observer.on('close', () => {
-      console.log('consumer closed ---');
+      scribbles.log('consumer closed ---');
     })
     consumer.on('producerclose', () => {
-      console.log('consumer -- on.producerclose');
+      scribbles.log('consumer -- on.producerclose');
       consumer.close();
       removeConsumer(roomName, localId, remoteId, kind);
 
@@ -282,7 +280,7 @@ io.on('connection', function (socket) {
       socket.emit('producerClosed', { localId: localId, remoteId: remoteId, kind: kind });
     });
 
-    console.log('-- consumer ready ---');
+    scribbles.log('-- consumer ready ---');
     sendResponse(params, callback);
   });
 
@@ -291,10 +289,10 @@ io.on('connection', function (socket) {
     const localId = getId(socket);
     const remoteId = data.remoteId;
     const kind = data.kind;
-    console.log('-- resumeAdd localId=%s remoteId=%s kind=%s', localId, remoteId, kind);
+    scribbles.log('-- resumeAdd localId=%s remoteId=%s kind=%s', localId, remoteId, kind);
     let consumer = getConsumer(roomName, localId, remoteId, kind);
     if (!consumer) {
-      console.error('consumer NOT EXIST for remoteId=' + remoteId);
+      scribbles.error('consumer NOT EXIST for remoteId=' + remoteId);
       return;
     }
     await consumer.resume();
@@ -307,7 +305,7 @@ io.on('connection', function (socket) {
 
   // --- send response to client ---
   function sendResponse(response, callback) {
-    //console.log('sendResponse() callback:', callback);
+    //scribbles.log('sendResponse() callback:', callback);
     callback(null, response);
   }
 
@@ -351,10 +349,10 @@ async function setupRoom(name) {
   router.roomname = name;
 
   router.observer.on('close', () => {
-    console.log('-- router closed. room=%s', name);
+    scribbles.log('-- router closed. room=%s', name);
   });
   router.observer.on('newtransport', transport => {
-    console.log('-- router newtransport. room=%s', name);
+    scribbles.log('-- router newtransport. room=%s', name);
   });
 
   room.router = router;
@@ -413,12 +411,12 @@ class Room {
 
   addProducerTrasport(id, transport) {
     this.producerTransports[id] = transport;
-    console.log('room=%s producerTransports count=%d', this.name, Object.keys(this.producerTransports).length);
+    scribbles.log('room=%s producerTransports count=%d', this.name, Object.keys(this.producerTransports).length);
   }
 
   removeProducerTransport(id) {
     delete this.producerTransports[id];
-    console.log('room=%s producerTransports count=%d', this.name, Object.keys(this.producerTransports).length);
+    scribbles.log('room=%s producerTransports count=%d', this.name, Object.keys(this.producerTransports).length);
   }
 
   getProducer(id, kind) {
@@ -429,7 +427,7 @@ class Room {
       return this.audioProducers[id];
     }
     else {
-      console.warn('UNKNOWN producer kind=' + kind);
+      scribbles.warn('UNKNOWN producer kind=' + kind);
     }
   }
 
@@ -455,28 +453,28 @@ class Room {
   addProducer(id, producer, kind) {
     if (kind === 'video') {
       this.videoProducers[id] = producer;
-      console.log('room=%s videoProducers count=%d', this.name, Object.keys(this.videoProducers).length);
+      scribbles.log('room=%s videoProducers count=%d', this.name, Object.keys(this.videoProducers).length);
     }
     else if (kind === 'audio') {
       this.audioProducers[id] = producer;
-      console.log('room=%s videoProducers count=%d', this.name, Object.keys(this.audioProducers).length);
+      scribbles.log('room=%s videoProducers count=%d', this.name, Object.keys(this.audioProducers).length);
     }
     else {
-      console.warn('UNKNOWN producer kind=' + kind);
+      scribbles.warn('UNKNOWN producer kind=' + kind);
     }
   }
 
   removeProducer(id, kind) {
     if (kind === 'video') {
       delete this.videoProducers[id];
-      console.log('videoProducers count=' + Object.keys(this.videoProducers).length);
+      scribbles.log('videoProducers count=' + Object.keys(this.videoProducers).length);
     }
     else if (kind === 'audio') {
       delete this.audioProducers[id];
-      console.log('audioProducers count=' + Object.keys(this.audioProducers).length);
+      scribbles.log('audioProducers count=' + Object.keys(this.audioProducers).length);
     }
     else {
-      console.warn('UNKNOWN producer kind=' + kind);
+      scribbles.warn('UNKNOWN producer kind=' + kind);
     }
   }
 
@@ -486,12 +484,12 @@ class Room {
 
   addConsumerTrasport(id, transport) {
     this.consumerTransports[id] = transport;
-    console.log('room=%s add consumerTransports count=%d', this.name, Object.keys(this.consumerTransports).length);
+    scribbles.log('room=%s add consumerTransports count=%d', this.name, Object.keys(this.consumerTransports).length);
   }
 
   removeConsumerTransport(id) {
     delete this.consumerTransports[id];
-    console.log('room=%s remove consumerTransports count=%d', this.name, Object.keys(this.consumerTransports).length);
+    scribbles.log('room=%s remove consumerTransports count=%d', this.name, Object.keys(this.consumerTransports).length);
   }
 
   getConsumerSet(localId, kind) {
@@ -502,7 +500,7 @@ class Room {
       return this.audioConsumerSets[localId];
     }
     else {
-      console.warn('WARN: getConsumerSet() UNKNWON kind=%s', kind);
+      scribbles.warn('WARN: getConsumerSet() UNKNWON kind=%s', kind);
     }
   }
 
@@ -514,7 +512,7 @@ class Room {
       this.audioConsumerSets[localId] = set;
     }
     else {
-      console.warn('WARN: addConsumerSet() UNKNWON kind=%s', kind);
+      scribbles.warn('WARN: addConsumerSet() UNKNWON kind=%s', kind);
     }
   }
 
@@ -528,7 +526,7 @@ class Room {
         delete videoSet[key];
       }
 
-      console.log('room=%s removeConsumerSetDeep video consumers count=%d', this.name, Object.keys(videoSet).length);
+      scribbles.log('room=%s removeConsumerSetDeep video consumers count=%d', this.name, Object.keys(videoSet).length);
     }
 
     const audioSet = this.getConsumerSet(localId, 'audio');
@@ -540,7 +538,7 @@ class Room {
         delete audioSet[key];
       }
 
-      console.log('room=%s removeConsumerSetDeep audio consumers count=%d', this.name, Object.keys(audioSet).length);
+      scribbles.log('room=%s removeConsumerSetDeep audio consumers count=%d', this.name, Object.keys(audioSet).length);
     }
   }
 
@@ -559,14 +557,14 @@ class Room {
     const set = this.getConsumerSet(localId, kind);
     if (set) {
       set[remoteId] = consumer;
-      console.log('room=%s consumers kind=%s count=%d', this.name, kind, Object.keys(set).length);
+      scribbles.log('room=%s consumers kind=%s count=%d', this.name, kind, Object.keys(set).length);
     }
     else {
-      console.log('room=%s new set for kind=%s, localId=%s', this.name, kind, localId);
+      scribbles.log('room=%s new set for kind=%s, localId=%s', this.name, kind, localId);
       const newSet = {};
       newSet[remoteId] = consumer;
       this.addConsumerSet(localId, newSet, kind);
-      console.log('room=%s consumers kind=%s count=%d', this.name, kind, Object.keys(newSet).length);
+      scribbles.log('room=%s consumers kind=%s count=%d', this.name, kind, Object.keys(newSet).length);
     }
   }
 
@@ -574,10 +572,10 @@ class Room {
     const set = this.getConsumerSet(localId, kind);
     if (set) {
       delete set[remoteId];
-      console.log('room=%s consumers kind=%s count=%d', this.name, kind, Object.keys(set).length);
+      scribbles.log('room=%s consumers kind=%s count=%d', this.name, kind, Object.keys(set).length);
     }
     else {
-      console.log('NO set for room=%s kind=%s, localId=%s', this.name, kind, localId);
+      scribbles.log('NO set for room=%s kind=%s, localId=%s', this.name, kind, localId);
     }
   }
 
@@ -588,8 +586,8 @@ class Room {
 
   static addRoom(room, name) {
     Room.rooms[name] = room;
-    console.log('static addRoom. name=%s', room.name);
-    //console.log('static addRoom. name=%s, rooms:%O', room.name, room);
+    scribbles.log('static addRoom. name=%s', room.name);
+    //scribbles.log('static addRoom. name=%s, rooms:%O', room.name, room);
   }
 
   static getRoom(name) {
@@ -679,7 +677,7 @@ async function startWorker() {
   //producerTransport = await router.createWebRtcTransport(mediasoupOptions.webRtcTransport);
 
   defaultRoom = await setupRoom('_default_room');
-  console.log('-- mediasoup worker start. -- room:', defaultRoom.name);
+  scribbles.log('-- mediasoup worker start. -- room:', defaultRoom.name);
 }
 
 startWorker();
@@ -701,12 +699,12 @@ startWorker();
 
 function getProducerTrasnport(roomname, id) {
   if (roomname) {
-    console.log('=== getProducerTrasnport use room=%s ===', roomname);
+    scribbles.log('=== getProducerTrasnport use room=%s ===', roomname);
     const room = Room.getRoom(roomname);
     return room.getProducerTrasnport(id);
   }
   else {
-    console.log('=== getProducerTrasnport use defaultRoom room=%s ===', roomname);
+    scribbles.log('=== getProducerTrasnport use defaultRoom room=%s ===', roomname);
     return defaultRoom.getProducerTrasnport(id);
   }
 }
@@ -715,11 +713,11 @@ function addProducerTrasport(roomname, id, transport) {
   if (roomname) {
     const room = Room.getRoom(roomname);
     room.addProducerTrasport(id, transport);
-    console.log('=== addProducerTrasport use room=%s ===', roomname);
+    scribbles.log('=== addProducerTrasport use room=%s ===', roomname);
   }
   else {
     defaultRoom.addProducerTrasport(id, transport);
-    console.log('=== addProducerTrasport use defaultRoom room=%s ===', roomname);
+    scribbles.log('=== addProducerTrasport use defaultRoom room=%s ===', roomname);
   }
 }
 
@@ -759,11 +757,11 @@ function addProducer(roomname, id, producer, kind) {
   if (roomname) {
     const room = Room.getRoom(roomname);
     room.addProducer(id, producer, kind);
-    console.log('=== addProducer use room=%s ===', roomname);
+    scribbles.log('=== addProducer use room=%s ===', roomname);
   }
   else {
     defaultRoom.addProducer(id, producer, kind);
-    console.log('=== addProducer use defaultRoom room=%s ===', roomname);
+    scribbles.log('=== addProducer use defaultRoom room=%s ===', roomname);
   }
 }
 
@@ -785,12 +783,12 @@ function removeProducer(roomname, id, kind) {
 
 function getConsumerTrasnport(roomname, id) {
   if (roomname) {
-    console.log('=== getConsumerTrasnport use room=%s ===', roomname);
+    scribbles.log('=== getConsumerTrasnport use room=%s ===', roomname);
     const room = Room.getRoom(roomname);
     return room.getConsumerTrasnport(id);
   }
   else {
-    console.log('=== getConsumerTrasnport use defaultRoom room=%s ===', roomname);
+    scribbles.log('=== getConsumerTrasnport use defaultRoom room=%s ===', roomname);
     return defaultRoom.getConsumerTrasnport(id);
   }
 }
@@ -799,11 +797,11 @@ function addConsumerTrasport(roomname, id, transport) {
   if (roomname) {
     const room = Room.getRoom(roomname);
     room.addConsumerTrasport(id, transport);
-    console.log('=== addConsumerTrasport use room=%s ===', roomname);
+    scribbles.log('=== addConsumerTrasport use room=%s ===', roomname);
   }
   else {
     defaultRoom.addConsumerTrasport(id, transport);
-    console.log('=== addConsumerTrasport use defaultRoom room=%s ===', roomname);
+    scribbles.log('=== addConsumerTrasport use defaultRoom room=%s ===', roomname);
   }
 }
 
@@ -825,7 +823,7 @@ function removeConsumerTransport(roomname, id) {
 //     return audioConsumers[localId];
 //   }
 //   else {
-//     console.warn('WARN: getConsumerSet() UNKNWON kind=%s', kind);
+//     scribbles.warn('WARN: getConsumerSet() UNKNWON kind=%s', kind);
 //   }
 // }
 
@@ -843,11 +841,11 @@ function addConsumer(roomname, localId, remoteId, consumer, kind) {
   if (roomname) {
     const room = Room.getRoom(roomname);
     room.addConsumer(localId, remoteId, consumer, kind);
-    console.log('=== addConsumer use room=%s ===', roomname);
+    scribbles.log('=== addConsumer use room=%s ===', roomname);
   }
   else {
     defaultRoom.addConsumer(localId, remoteId, consumer, kind);
-    console.log('=== addConsumer use defaultRoom room=%s ===', roomname);
+    scribbles.log('=== addConsumer use defaultRoom room=%s ===', roomname);
   }
 }
 
@@ -879,7 +877,7 @@ function removeConsumerSetDeep(roomname, localId) {
 //     audioConsumers[localId] = set;
 //   }
 //   else {
-//     console.warn('WARN: addConsumerSet() UNKNWON kind=%s', kind);
+//     scribbles.warn('WARN: addConsumerSet() UNKNWON kind=%s', kind);
 //   }
 // }
 
@@ -893,7 +891,7 @@ async function createTransport(roomname) {
     router = defaultRoom.router;
   }
   const transport = await router.createWebRtcTransport(mediasoupOptions.webRtcTransport);
-  console.log('-- create transport room=%s id=%s', roomname, transport.id);
+  scribbles.log('-- create transport room=%s id=%s', roomname, transport.id);
 
   return {
     transport: transport,
@@ -923,7 +921,7 @@ async function createConsumer(roomname, transport, producer, rtpCapabilities) {
       rtpCapabilities,
     })
   ) {
-    console.error('can not consume');
+    scribbles.error('can not consume');
     return;
   }
 
@@ -934,7 +932,7 @@ async function createConsumer(roomname, transport, producer, rtpCapabilities) {
     rtpCapabilities,
     paused: producer.kind === 'video',
   }).catch(err => {
-    console.error('consume failed', err);
+    scribbles.error('consume failed', err);
     return;
   });
 
