@@ -1,4 +1,4 @@
-# mediasoup_v3_example
+# mediasoup-kitchensync
 Examples for WebRTC SFU mediasoup v3 with node.js
 
 * mediasoup GitHub [https://github.com/versatica/mediasoup](https://github.com/versatica/mediasoup)
