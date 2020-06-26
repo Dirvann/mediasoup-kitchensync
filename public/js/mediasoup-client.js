@@ -11227,30 +11227,34 @@ exports.generateRandomNumber = function()
 
 },{}],35:[function(require,module,exports){
 module.exports={
-  "_from": "mediasoup-client@3",
+  "_args": [
+    [
+      "mediasoup-client@3.1.6",
+      "/root/mediasoup_v3_example"
+    ]
+  ],
+  "_from": "mediasoup-client@3.1.6",
   "_id": "mediasoup-client@3.1.6",
   "_inBundle": false,
   "_integrity": "sha512-aQidOMu4E9XY9WQVkeYEGSll/Jv8qHKSonixDYHj9q59OQP11fb26IwJioSROOIuzJlqQKcrsNLb/jEfQF9IEA==",
   "_location": "/mediasoup-client",
   "_phantomChildren": {},
   "_requested": {
-    "type": "range",
+    "type": "version",
     "registry": true,
-    "raw": "mediasoup-client@3",
+    "raw": "mediasoup-client@3.1.6",
     "name": "mediasoup-client",
     "escapedName": "mediasoup-client",
-    "rawSpec": "3",
+    "rawSpec": "3.1.6",
     "saveSpec": null,
-    "fetchSpec": "3"
+    "fetchSpec": "3.1.6"
   },
   "_requiredBy": [
-    "#USER",
     "/"
   ],
   "_resolved": "https://registry.npmjs.org/mediasoup-client/-/mediasoup-client-3.1.6.tgz",
-  "_shasum": "64169e41a57d54b53a5ffb8c838cf1a8798c2027",
-  "_spec": "mediasoup-client@3",
-  "_where": "/Users/masashi/project/git_local/mediasoup_v3/mediasoup_v3_example",
+  "_spec": "3.1.6",
+  "_where": "/root/mediasoup_v3_example",
   "author": {
     "name": "Iñaki Baz Castillo",
     "email": "ibc@aliax.net",
@@ -11259,7 +11263,6 @@ module.exports={
   "bugs": {
     "url": "https://github.com/versatica/mediasoup-client/issues"
   },
-  "bundleDependencies": false,
   "contributors": [
     {
       "name": "José Luis Millán",
@@ -11276,7 +11279,6 @@ module.exports={
     "open-cli": "^5.0.0",
     "sdp-transform": "^2.8.0"
   },
-  "deprecated": false,
   "description": "mediasoup client side JavaScript library",
   "devDependencies": {
     "eslint": "^5.16.0",

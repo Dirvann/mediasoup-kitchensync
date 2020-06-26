@@ -33,9 +33,11 @@
 // --- read options ---
 const fs = require('fs');
 let serverOptions = {
-  hostName: "localhost",
-  listenPort: 3000,
-  useHttps: false
+  hostName: "178.128.169.151",
+  listenPort: 443,
+  useHttps: true,
+  httpsKeyFile:"../httpsKeyFile",
+  httpsCertFile:"../httpsCertFile",
 };
 let sslOptions = {};
 if (serverOptions.useHttps) {
