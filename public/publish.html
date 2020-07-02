@@ -25,6 +25,7 @@
   mediasoup v3 publish with socket.io<br />
   <input type="checkbox" id="use_video" checked="1">video</input>
   <input type="checkbox" id="use_audio" checked="1">audio</input>
+  <button id="start_desktop_button" onclick="startDesktop();">Share Desktop</button>
   <button id="start_video_button" onclick="startMedia();">Start Media</button>
   <button id="stop_video_button" onclick="stopMedia();">Stop Media</button>
   &nbsp;
@@ -166,8 +167,12 @@
     const useAudio = document.getElementById('use_audio').checked;
     return useAudio;
   }
-
-  function startMedia() {
+  
+  function startDesktop(){
+    startMedia(true)
+  }
+  
+  function startMedia(shareDesk) {
     if (localStream) {
       console.warn('WARN: local media ALREADY started');
       return;
@@ -175,9 +180,10 @@
 
     const useVideo = checkUseVideo();
     const useAudio = checkUseAudio();
-
-    navigator.mediaDevices.getUserMedia({ audio: useAudio, video: useVideo })
-      .then((stream) => {
+    const inputMedia = shareDesk ? navigator.mediaDevices.getDisplayMedia()
+                                 : navigator.mediaDevices.getUserMedia({ audio: useAudio, video: useVideo })
+    
+   inputMedia.then((stream) => {
         localStream = stream;
         playVideo(localVideo, localStream);
         updateButtons();
@@ -185,7 +191,7 @@
       .catch(err => {
         console.error('media ERROR:', err);
       });
-  }
+  } // END startMedia
 
   function stopMedia() {
     if (localStream) {
