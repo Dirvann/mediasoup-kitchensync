@@ -81,3 +81,4 @@ open http://localhost:3000/multi.html with browser
 
 * This samples are under the MIT license
 * このサンプルはMITランセンスで提供されます
+ 
